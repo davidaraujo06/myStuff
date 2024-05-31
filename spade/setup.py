@@ -18,7 +18,7 @@ async def main():
     await encomenda_agent.start(auto_register=True)
     await linha1_agent.start(auto_register=True)
     await linha2_agent.start(auto_register=True)
-    await linha3_agent.start(auto_register=True)
+    #await linha3_agent.start(auto_register=True)
     #await robo1_agent.start(auto_register=True)
     #await robo2_agent.start(auto_register=True)
 
@@ -31,7 +31,7 @@ async def main():
         await encomenda_agent.stop()
         await linha1_agent.stop()
         await linha2_agent.stop()
-        await linha3_agent.stop()
+        #await linha3_agent.stop()
         #await robo1_agent.stop()
         #await robo2_agent.stop()
         print("Agentes interrompidos e parados.")

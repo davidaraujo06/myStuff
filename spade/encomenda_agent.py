@@ -1,26 +1,28 @@
 from spade.agent import Agent
-from spade.behaviour import OneShotBehaviour
-from spade.message import Message
+from spade.behaviour import OneShotBehaviour, CyclicBehaviour
 from datetime import datetime, timedelta
-import json
+from utils import *
+import asyncio
 
 class EncomendaOntologia:
-    ENCOMENDA = "encomenda"
-    PRONTO = "pronto"
+    REQUEST = "request"
+    INFORM = "inform"
 
 class EncomendaAgent(Agent):
     class WaitForReadyBehav(OneShotBehaviour):
         async def run(self):
             while True:
                 msg = await self.receive(timeout=10)
-                if msg and msg.metadata["performative"] == EncomendaOntologia.PRONTO:
+                if msg and msg.metadata["performative"] == EncomendaOntologia.INFORM:
                     self.agent.ready_agents.add(str(msg.sender))
                     print(f"Recebido pronto de {msg.sender}")
-                    if len(self.agent.ready_agents) == 3:
+                    if len(self.agent.ready_agents) == 2:
                         self.agent.add_behaviour(self.agent.SendEncomendaBehav())
                         break
 
-    class SendEncomendaBehav(OneShotBehaviour):
+
+    class SendEncomendaBehav(CyclicBehaviour):
+
         async def run(self):
             data_atual = datetime.now()
 
@@ -32,16 +34,18 @@ class EncomendaAgent(Agent):
                 {"cliente": "Cliente E", "prioridade": "Media", "quantidade": 80, "tempo_finalizacao": 300, "prazo_entrega": (data_atual + timedelta(days=12)).strftime('%Y-%m-%d')}
             ]
 
-            linhas_producao = ["linha1@jabbers.one", "linha2@jabbers.one", "linha3@jabbers.one"]
+            linhas_producao = ["linha1@jabbers.one", "linha2@jabbers.one"]
 
+            # Enviar mensagens para as linhas de produção quando houver encomendas
             for linha in linhas_producao:
-                await self.send_encomenda(linha, encomendas)
+                await sendMessage(self, self.agent.jid, linha, "performative", encomendas, EncomendaOntologia.REQUEST)
 
-        async def send_encomenda(self, linha_producao, encomenda):
-            msg = Message(to=linha_producao)
-            msg.set_metadata("performative", EncomendaOntologia.ENCOMENDA)
-            msg.body = json.dumps(encomenda)
-            await self.send(msg)
+            encomendas.clear() 
+            # Loop para verificar se há encomendas
+            while not encomendas:
+                print("Aguardando encomendas...")
+                await asyncio.sleep(900)  # Aguarda 15 minutos antes de verificar novamente
+
 
     async def setup(self):
         print(f"Encomenda agent {self.jid} inicializado.")
