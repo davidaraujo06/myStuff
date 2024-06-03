@@ -1,6 +1,7 @@
-from spade import agent, message, behaviour
-import json
-import random
+from spade.agent import Agent
+from spade.behaviour import OneShotBehaviour
+from utils import *
+import json 
 
 class LinhaProducaoOntologia:
     PRONTO = "pronto"
@@ -9,8 +10,8 @@ class LinhaProducaoOntologia:
     PROPOSTA = "proposta"
     AGREE = "agree"
 
-class LinhaProducao3Agent(agent.Agent):
-    class RecebeEncomendaBehav(behaviour.OneShotBehaviour):
+class LinhaProducao3Agent(Agent):
+    class RecebeEncomendaBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Aguardando encomenda...")
             msg = await self.receive(timeout=10)
@@ -20,14 +21,14 @@ class LinhaProducao3Agent(agent.Agent):
                 self.agent.encomendas = encomendas
                 self.agent.add_behaviour(self.agent.PrimeiraRodadaDiscussaoBehav())
 
-    class SetReadyBehav(behaviour.OneShotBehaviour):
+    class SetReadyBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Enviando mensagem de pronto...")
             ready_msg = message.Message(to="encomenda@jabbers.one")
             ready_msg.set_metadata("performative", LinhaProducaoOntologia.PRONTO)
             await self.send(ready_msg)
 
-    class PrimeiraRodadaDiscussaoBehav(behaviour.CyclicBehaviour):
+    class PrimeiraRodadaDiscussaoBehav(CyclicBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Iniciando primeira rodada de discussão de encomendas...")
             msg = await self.receive(timeout=10)
@@ -46,7 +47,7 @@ class LinhaProducao3Agent(agent.Agent):
                     print(f"{self.agent.jid}: Proposta aceita. Avançando para a segunda rodada.")
                     self.agent.add_behaviour(self.agent.SegundaRodadaDiscussaoBehav())
 
-    class SegundaRodadaDiscussaoBehav(behaviour.CyclicBehaviour):
+    class SegundaRodadaDiscussaoBehav(CyclicBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Iniciando segunda rodada de discussão de encomendas...")
             msg = await self.receive(timeout=10)
@@ -64,7 +65,7 @@ class LinhaProducao3Agent(agent.Agent):
                     print(f"{self.agent.jid}: Proposta aceita. Avançando para a terceira rodada.")
                     self.agent.add_behaviour(self.agent.TerceiraRodadaDiscussaoBehav())
 
-    class TerceiraRodadaDiscussaoBehav(behaviour.CyclicBehaviour):
+    class TerceiraRodadaDiscussaoBehav(CyclicBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Iniciando terceira rodada de discussão de encomendas...")
             msg = await self.receive(timeout=10)
@@ -76,7 +77,7 @@ class LinhaProducao3Agent(agent.Agent):
                 print(f"{self.agent.jid}: Enviando confirmação para {msg.sender}")
                 await self.send(confirmacao_msg)
 
-    class WaitForReadyBehav(behaviour.OneShotBehaviour):
+    class WaitForReadyBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Aguardando todas as linhas de produção ficarem prontas...")
             while True:

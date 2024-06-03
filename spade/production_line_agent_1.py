@@ -1,4 +1,5 @@
-from spade import agent, behaviour
+from spade.agent import Agent
+from spade.behaviour import OneShotBehaviour
 from utils import *
 import json 
 
@@ -7,8 +8,8 @@ class LinhaProducaoOntologia:
     INFORM = "inform"
     PROPOSE = "propose"
 
-class LinhaProducao1Agent(agent.Agent):
-    class RecebeEncomendaBehav(behaviour.OneShotBehaviour):
+class LinhaProducao1Agent(Agent):
+    class RecebeEncomendaBehav(OneShotBehaviour):
         async def run(self):
             global ENCOMENDAS
             print(f"{self.agent.jid}: Aguardando encomenda...")
@@ -19,17 +20,17 @@ class LinhaProducao1Agent(agent.Agent):
                 self.agent.encomendas = ENCOMENDAS
                 self.agent.add_behaviour(self.agent.ProposeEncomendaBehav())
 
-    class SetReadyBehav(behaviour.OneShotBehaviour):
+    class SetReadyBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Enviando mensagem de pronto...")
             await sendMessage(self, self.agent.jid, "encomenda@jabbers.one", "performative", "pronto", LinhaProducaoOntologia.INFORM)
 
-    class ProposeEncomendaBehav(behaviour.OneShotBehaviour):
+    class ProposeEncomendaBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Enviando mensagem de posposta...")
-            await sendMessage(self, self.agent.jid, "linha2@jabbers.one", "performative", "100", LinhaProducaoOntologia.PROPOSE)  
+            await sendMessage(self, self.agent.jid, "linha2@jabbers.one", "performative", "estou aqui", LinhaProducaoOntologia.PROPOSE)  
 
-    class RecebeRespostaLinha2(behaviour.OneShotBehaviour):
+    class RecebeRespostaLinha2(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Aguardando decisão da linha 2...")
             msg = await self.receive(timeout=10)

@@ -1,5 +1,5 @@
 from spade.agent import Agent
-from spade.behaviour import OneShotBehaviour, CyclicBehaviour
+from spade.behaviour import OneShotBehaviour
 from datetime import datetime, timedelta
 from utils import *
 import asyncio
@@ -13,7 +13,7 @@ class EncomendaAgent(Agent):
         async def run(self):
             while True:
                 msg = await self.receive(timeout=10)
-                if msg and msg.metadata["performative"] == EncomendaOntologia.INFORM:
+                if msg.body=="pronto" and msg.metadata["performative"] == EncomendaOntologia.INFORM:
                     self.agent.ready_agents.add(str(msg.sender))
                     print(f"Recebido pronto de {msg.sender}")
                     if len(self.agent.ready_agents) == 2:
@@ -21,7 +21,7 @@ class EncomendaAgent(Agent):
                         break
 
 
-    class SendEncomendaBehav(CyclicBehaviour):
+    class SendEncomendaBehav(OneShotBehaviour):
 
         async def run(self):
             data_atual = datetime.now()

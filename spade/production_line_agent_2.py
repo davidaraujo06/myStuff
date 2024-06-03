@@ -1,14 +1,15 @@
-from spade import agent, behaviour
+from spade.agent import Agent
+from spade.behaviour import OneShotBehaviour
 from utils import *
-import json, random, asyncio
+import json, random
 
 class LinhaProducaoOntologia:
     REQUEST = "request"
     INFORM = "inform"
     PROPOSE = "propose"
 
-class LinhaProducao2Agent(agent.Agent):
-    class RecebeEncomendaBehav(behaviour.OneShotBehaviour):
+class LinhaProducao2Agent(Agent):
+    class RecebeEncomendaBehav(OneShotBehaviour):
         async def run(self):
             global ENCOMENDAS
             print(f"{self.agent.jid}: Aguardando encomenda...")
@@ -17,19 +18,18 @@ class LinhaProducao2Agent(agent.Agent):
                 ENCOMENDAS = json.loads(msg.body)
                 print(f"{self.agent.jid}: Recebeu encomenda: {ENCOMENDAS}")
 
-    class SetReadyBehav(behaviour.OneShotBehaviour):
+    class SetReadyBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Enviando mensagem de pronto...")
             await sendMessage(self, self.agent.jid, "encomenda@jabbers.one", "performative", "pronto", LinhaProducaoOntologia.INFORM)
 
-    class RecebePropostasLinha1(behaviour.OneShotBehaviour):
+    class RecebePropostasLinha1(OneShotBehaviour):
         async def run(self):
             rate = 80
             melhorLinha = ""
-            await asyncio.sleep(20)
             print(f"{self.agent.jid}: Aguardando Proposta...")
             msg = await self.receive(timeout=10)
-            print(msg)
+            print(msg.body)
             if msg and msg.metadata["performative"] == LinhaProducaoOntologia.PROPOSE:
                 print("começa decisão ....")
                 if rate == int(msg.body):
@@ -39,6 +39,7 @@ class LinhaProducao2Agent(agent.Agent):
                     melhorLinha = "linha2@jabbers.one"
                     print(melhorLinha)
                 else:
+                    melhorLinha = "linha1@jabbers.one"
                     print(melhorLinha)
 
             if melhorLinha == "linha1@jabbers.one":
@@ -48,8 +49,6 @@ class LinhaProducao2Agent(agent.Agent):
 
     async def setup(self):
         print(f"Linha de produção {self.jid} inicializada.")
-        self.encomendas = []
-        self.encomenda_escolhida = None
         self.linhas_producao = ["linha1@jabbers.one", "linha2@jabbers.one"]
         self.add_behaviour(self.SetReadyBehav())
         self.add_behaviour(self.RecebeEncomendaBehav())
