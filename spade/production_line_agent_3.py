@@ -15,7 +15,7 @@ class LinhaProducao3Agent(Agent):
 
     class RecebePropostaLinhas(OneShotBehaviour):
         async def run(self):
-            rateLinha3 = 20
+            rateLinha3 = 10
             melhorLinha = ""
             await asyncio.sleep(20)
             print(f"{self.agent.jid}: Aguardando Proposta...")
@@ -41,6 +41,7 @@ class LinhaProducao3Agent(Agent):
 
                 # envia para a linha sender a info e de seguida comunicar com os robos
                 await sendMessage(self, self.agent.jid, str(msg.sender), "performative", {"best": "linha3@jabbers.one"}, LinhaProducaoOntologia.INFORM)
+                print(f"{self.agent.jid}: envia mensagem aos robos a dizer que foi o primeiro")  
             else: 
 
                 # enviar mensagem sender a dizer que ganhou e de seguida verificar com a linha restante quem é melhor

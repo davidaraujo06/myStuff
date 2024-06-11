@@ -83,7 +83,7 @@ class LinhaProducao2Agent(Agent):
 
     class RecebeRespostaLinha3(OneShotBehaviour):
             async def run(self):
-                await asyncio.sleep(10)
+                await asyncio.sleep(15)
                 print(f"{self.agent.jid}: Aguardando decisão da linha 3...")
                 msg = await self.receive(timeout=10)
                 if msg and msg.metadata["performative"] == LinhaProducaoOntologia.INFORM:

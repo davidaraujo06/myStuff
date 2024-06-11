@@ -2,7 +2,7 @@ from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour
 from datetime import datetime, timedelta
 from utils import *
-import json, asyncio
+import json, asyncio, random
 
 class LinhaProducaoOntologia:
     REQUEST = "request"
@@ -26,6 +26,8 @@ class LinhaProducao1Agent(Agent):
     class ProposeEncomendaBehav(OneShotBehaviour):
         async def run(self):
             data_atual = datetime.now()
+            global rateLinha1
+            rateLinha1 = 20
             global encomendas
             encomendas = [
                 {
@@ -36,7 +38,7 @@ class LinhaProducao1Agent(Agent):
                         "Cliente D": {"prioridade": "Alta", "quantidade": 150, "tempo_finalizacao": 180, "prazo_entrega": (data_atual + timedelta(days=6)).strftime('%Y-%m-%d')},
                         "Cliente E": {"prioridade": "Media", "quantidade": 80, "tempo_finalizacao": 300, "prazo_entrega": (data_atual + timedelta(days=12)).strftime('%Y-%m-%d')},
                     },
-                    "rateDefeitos": 10
+                    "rateDefeitos": rateLinha1
                 }
             ]
 
@@ -77,11 +79,35 @@ class LinhaProducao1Agent(Agent):
 
     class RecebeDecisaoFinalLinha2(OneShotBehaviour):
         async def run(self):   
-            await asyncio.sleep(30)
-            print(f"{self.agent.jid}: Aguardando decisão final...")
+            await asyncio.sleep(20)
             msg = await self.receive(timeout=10)
-            if json.loads(msg.body)["2ndbest"]=="linha2@jabbers.one" and msg.metadata["performative"] == LinhaProducaoOntologia.INFORM:  
-                print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")                     
+            try:
+                if json.loads(msg.body)["2ndbest"]=="linha2@jabbers.one" and msg.metadata["performative"] == LinhaProducaoOntologia.INFORM:  
+                    print(f"{self.agent.jid}: Aguardando decisão final...")
+                    print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")
+            except:
+                melhorLinha = ""
+                print(f"{self.agent.jid}: Aguardando Proposta...")
+                respondeJSON = json.loads(msg.body)
+                rateLinha3 = int(respondeJSON[0]["rateDefeitos"])
+                if msg and msg.metadata["performative"] == LinhaProducaoOntologia.PROPOSE:
+                    print("começa decisão ....")
+                    if rateLinha1 == rateLinha3:
+                        linhas = ["linha1@jabbers.one", "linha2@jabbers.one"]
+                        melhorLinha = random.choice(linhas)
+                        print("aleatória ....")
+                    elif rateLinha1 < rateLinha3: 
+                        melhorLinha = "linha1@jabbers.one"
+                    else:
+                        melhorLinha = "linha3@jabbers.one"
+
+                    if melhorLinha == "linha1@jabbers.one":
+                        await sendMessage(self, self.agent.jid, "linha3@jabbers.one", "performative", {"2ndbest": melhorLinha}, LinhaProducaoOntologia.INFORM)
+                        print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos") 
+                    else:
+                        melhorLinha = "linha3@jabbers.one"
+                        await sendMessage(self, self.agent.jid, "linha3@jabbers.one", "performative", {"2ndbest": melhorLinha}, LinhaProducaoOntologia.INFORM)
+                        print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")                         
 
     async def setup(self):
         print(f"Linha de produção {self.jid} inicializada.")
