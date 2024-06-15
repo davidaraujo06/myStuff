@@ -48,35 +48,40 @@ async def encomenda_prioritaria(clientes, posicao):
 async def atingiuLimite(nomeLinha1, nomeLinha2, percentagem_defeito,self, LinhaProducaoOntologia, encomendaFinal):
             
             await sendMessage(self, self.agent.jid, nomeLinha1, "performative", {"rate": "envia o teu rate"}, LinhaProducaoOntologia.PROPOSE)
-            await asyncio.sleep(20)
+            await asyncio.sleep(10)
             msgLinha1 = await self.receive(timeout=10)
             rateLinha1 = json.loads(msgLinha1.body)["rate"]
-            # await sendMessage(self, self.agent.jid, nomeLinha2, "performative", {"rate":  "envia o teu rate"}, LinhaProducaoOntologia.PROPOSE)
-            # await asyncio.sleep(10)
-            # msgLinha2 = await self.receive(timeout=10)
-            # rateLinha2 = json.loads(msgLinha2.body)["rate"]
+            await sendMessage(self, self.agent.jid, nomeLinha2, "performative", {"rate":  "envia o teu rate"}, LinhaProducaoOntologia.PROPOSE)
+            await asyncio.sleep(10)
+            msgLinha2 = await self.receive(timeout=10)
+            rateLinha2 = json.loads(msgLinha2.body)["rate"]
 
-            if percentagem_defeito > float(rateLinha1) or percentagem_defeito > 0.0: 
-                if float(rateLinha1) > 0.0:
+            if percentagem_defeito > float(rateLinha1) or percentagem_defeito > float(rateLinha2) or percentagem_defeito > 0.0: 
+                if float(rateLinha1) > float(rateLinha2):
                     await sendMessage(self, self.agent.jid, nomeLinha2, "performative", {"encomenda": encomendaFinal}, LinhaProducaoOntologia.INFORM)
-                elif float(rateLinha1) < 0.0:
+                    await asyncio.sleep(10)
+                    msgLinhaFinal = await self.receive(timeout=10) 
+                    print(f"{self.agent.jid}: recebe encomenda")
+                    print(msgLinhaFinal)
+                elif float(rateLinha1) < float(rateLinha2):
                     await sendMessage(self, self.agent.jid, nomeLinha1, "performative", {"encomenda": encomendaFinal}, LinhaProducaoOntologia.INFORM)
+                    await asyncio.sleep(5)
+                    msgLinhaFinal = await self.receive(timeout=10) 
+                    print(f"{self.agent.jid}: recebe encomenda")
+                    print(msgLinhaFinal.body)
             # se for igual não faz nada        
 
-            await asyncio.sleep(10)
-            msgLinhaFinal = await self.receive(timeout=10) 
-            print(f"{self.agent.jid}: recebe encomenda")
-            print(msgLinhaFinal)
             #informa os robos que houve uma troca e quer uma nova encomenda
 
 async def recebePropostaTroca(self, LinhaProducaoOntologia, rateAtual, encomendaFinal, msgLinha):
     await sendMessage(self, self.agent.jid, str(msgLinha.sender), "performative", {"rate":  rateAtual}, LinhaProducaoOntologia.INFORM)
-
-    await asyncio.sleep(20)    
+    
+    await asyncio.sleep(15)
     #recebe mensagem de troca caso seja para ele
     msgLinhaFinal = await self.receive(timeout=10)
-    print(f"{self.agent.jid}: recebe encomenda")
-    if msgLinhaFinal != None:
+    if msgLinhaFinal:
+        print(f"{self.agent.jid}: recebe encomenda")
+        print(msgLinhaFinal.body)
         await sendMessage(self, self.agent.jid, str(msgLinhaFinal.sender), "performative", {"encomenda":  encomendaFinal}, LinhaProducaoOntologia.INFORM)
         #envia mensagem aos robos
 

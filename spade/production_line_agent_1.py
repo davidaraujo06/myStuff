@@ -74,9 +74,11 @@ class LinhaProducao1Agent(Agent):
                     if json.loads(msg.body)["best"]=="linha3@jabbers.one":
                         await sendMessage(self, self.agent.jid, "linha2@jabbers.one", "performative", {"2ndbest": "linha1@jabbers.one"}, LinhaProducaoOntologia.INFORM) 
                         LinhaProducao1Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao1Agent.encomendas[0]["clientes"], 2)
+                        print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")
                         print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos") 
                     else:
                         LinhaProducao1Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao1Agent.encomendas[0]["clientes"], 1)
+                        print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")
                         print(f"{self.agent.jid}: envia mensagem aos robos a dizer que foi a primeira")
 
     class RecebeDecisaoFinalLinha2(OneShotBehaviour):
@@ -87,8 +89,9 @@ class LinhaProducao1Agent(Agent):
             try:
                 if json.loads(msg.body)["2ndbest"]=="linha2@jabbers.one" and msg.metadata["performative"] == LinhaProducaoOntologia.INFORM:  
                     print(f"{self.agent.jid}: Aguardando decisão final...")
-                    print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")
                     LinhaProducao1Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao1Agent.encomendas[0]["clientes"], 3)
+                    self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())  
+                    print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")
             except:
                 melhorLinha = ""
                 print(f"{self.agent.jid}: Aguardando Proposta...")
@@ -108,17 +111,18 @@ class LinhaProducao1Agent(Agent):
                     if melhorLinha == "linha1@jabbers.one":
                         await sendMessage(self, self.agent.jid, "linha3@jabbers.one", "performative", {"2ndbest": melhorLinha}, LinhaProducaoOntologia.INFORM)
                         LinhaProducao1Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao1Agent.encomendas[0]["clientes"], 2)
+                        self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())  
                         print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos") 
                     else:
                         melhorLinha = "linha3@jabbers.one"
                         await sendMessage(self, self.agent.jid, "linha3@jabbers.one", "performative", {"2ndbest": melhorLinha}, LinhaProducaoOntologia.INFORM)
                         LinhaProducao1Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao1Agent.encomendas[0]["clientes"], 3)
+                        self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())  
                         print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")                         
 
     class AtingiuLimitePercentagem(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: atingiu limite de percentagem")
-            print(LinhaProducao1Agent.rateLinha1)
             await atingiuLimite("linha2@jabbers.one", "linha3@jabbers.one", LinhaProducao1Agent.rateLinha1,self, LinhaProducaoOntologia, LinhaProducao1Agent.encomendaFinal)
 
 
@@ -139,12 +143,23 @@ class LinhaProducao1Agent(Agent):
                 if com_defeito==0:
                     LinhaProducao1Agent.rateLinha1=0
                 LinhaProducao1Agent.rateLinha1 = (com_defeito / (i+1)) * 100
-                LinhaProducao1Agent.rateLinha1 = 85.0
+    
                 if LinhaProducao1Agent.rateLinha1 > 80.0:
                     self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
                     await asyncio.sleep(300) 
             
                 await asyncio.sleep(20)
+
+    class RecebePropostaDeTroca(OneShotBehaviour):
+            async def run(self):
+                while True:
+                    msgLinha = await self.receive(timeout=10)
+                    if msgLinha and json.loads(msgLinha.body)["rate"] =="envia o teu rate" and msgLinha.metadata["performative"] == LinhaProducaoOntologia.PROPOSE:
+                        break
+                    else:
+                        await asyncio.sleep(5)
+
+                await recebePropostaTroca(self, LinhaProducaoOntologia, LinhaProducao1Agent.rateLinha1, LinhaProducao1Agent.encomendaFinal, msgLinha)            
 
     async def setup(self):
         print(f"Linha de produção {self.jid} inicializada.")

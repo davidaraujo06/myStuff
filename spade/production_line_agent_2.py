@@ -135,11 +135,17 @@ class LinhaProducao2Agent(Agent):
                 if com_defeito==0:
                     LinhaProducao2Agent.rateLinha2=0
                 LinhaProducao2Agent.rateLinha2 = (com_defeito / (i+1)) * 100
+                
                 if LinhaProducao2Agent.rateLinha2 > 80.0:
-                    #self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
+                    self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
                     await asyncio.sleep(300) 
             
                 await asyncio.sleep(20)
+
+    class AtingiuLimitePercentagem(OneShotBehaviour):
+        async def run(self):
+            print(f"{self.agent.jid}: atingiu limite de percentagem")
+            await atingiuLimite("linha1@jabbers.one", "linha3@jabbers.one", LinhaProducao2Agent.rateLinha2,self, LinhaProducaoOntologia, LinhaProducao2Agent.encomendaFinal)            
 
     async def setup(self):
         print(f"Linha de produção {self.jid} inicializada.")
