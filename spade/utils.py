@@ -32,6 +32,15 @@ async def sendMessage(self, sender, receiver, typeMessage, message_content, meta
     await self.send(msg)
     print("Message sent!")
 
+def carregar_encomendas(filename):
+    with open(filename, 'r') as file:
+        return json.load(file)
+
+# Função para salvar encomendas no arquivo JSON
+def salvar_encomendas(filename, data):
+    with open(filename, 'w') as file:
+        json.dump(data, file, indent=4)     
+
 async def encomenda_prioritaria(clientes, posicao):
     prioridade_ordem = {"Alta": 1, "Media": 2, "Baixa": 3}
     
@@ -43,6 +52,12 @@ async def encomenda_prioritaria(clientes, posicao):
     
     # Retorna o cliente correspondente à posição desejada
     cliente_prioritario = clientes_ordenados[posicao - 1]
+
+    data = carregar_encomendas("./encomendas.json")
+
+    data["clientes"].pop(cliente_prioritario)
+    salvar_encomendas("./encomendas.json", data)
+
     return clientes[cliente_prioritario]
 
 async def atingiuLimite(nomeLinha1, nomeLinha2, percentagem_defeito,self, LinhaProducaoOntologia, encomendaFinal):
@@ -69,6 +84,9 @@ async def atingiuLimite(nomeLinha1, nomeLinha2, percentagem_defeito,self, LinhaP
                     msgLinhaFinal = await self.receive(timeout=10) 
                     print(f"{self.agent.jid}: recebe encomenda")
                     print(msgLinhaFinal.body)
+            else:
+                print("Nao houve troca pois as outras linhas tem este rate: " + str(nomeLinha1) + "-->" + str(rateLinha1) + "..." +  str(nomeLinha2) + "-->" + str(rateLinha2) + "\ne a " + f"{self.agent.jid}: linha que precisava de troca tem : "+ str(rateLinha2)) 
+
             # se for igual não faz nada        
 
             #informa os robos que houve uma troca e quer uma nova encomenda

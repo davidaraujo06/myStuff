@@ -12,6 +12,7 @@ class LinhaProducao2Agent(Agent):
     rateLinha2 = 0.0
     encomendaFinal = None
     encomendas = None
+    stateBusy = False
     class SetReadyBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Enviando mensagem de pronto...")
@@ -25,14 +26,14 @@ class LinhaProducao2Agent(Agent):
             msg = await self.receive(timeout=10)
             respondeJSON = json.loads(msg.body)
             LinhaProducao2Agent.encomendas = respondeJSON[0]["clientes"]
-            rateLinha1 = int(respondeJSON[0]["rateDefeitos"])
+            rateLinha2 = int(respondeJSON[0]["rateDefeitos"])
             if msg and msg.metadata["performative"] == LinhaProducaoOntologia.PROPOSE:
                 print("começa decisão ....")
-                if LinhaProducao2Agent.rateLinha2 == rateLinha1:
+                if LinhaProducao2Agent.rateLinha2 == rateLinha2:
                     linhas = ["linha1@jabbers.one", "linha2@jabbers.one"]
                     melhorLinha = random.choice(linhas)
                     print("aleatória ....")
-                elif LinhaProducao2Agent.rateLinha2 < rateLinha1: 
+                elif LinhaProducao2Agent.rateLinha2 < rateLinha2: 
                     melhorLinha = "linha2@jabbers.one"
                 else:
                     melhorLinha = "linha1@jabbers.one"
@@ -45,9 +46,6 @@ class LinhaProducao2Agent(Agent):
                 await sendMessage(self, self.agent.jid, "linha1@jabbers.one", "performative", {"best": "linha2@jabbers.one"}, LinhaProducaoOntologia.INFORM)
                 await sendMessage(self, self.agent.jid, "linha3@jabbers.one", "performative", [{"clientes": LinhaProducao2Agent.encomendas, "rateDefeitos":LinhaProducao2Agent.rateLinha2}], LinhaProducaoOntologia.PROPOSE)
                 self.agent.add_behaviour(self.agent.RecebeRespostaLinha3())
-                ##TODO: nota: linha 1 e dois vão enviar á linha 3, caso seja a 1 ou 2 a ganhar então a 3 informa a 1 (usar o msg.sender) e depois fala com a 2 para saber quem fica com o resto 
-                # caso seja a 3 a ganhar então a tres fica com a maior e depois informa a 1 ou 2 a dizer que perderam e como a 1 e a 2 já se conforntaram ja sabem quem é pior ou melhor
-                # ao fim disso ver melhor o caso dos rates e ter uma função sempre a cada 10 segundos a calcular a percentagem e ao fim disso ver mensagens trocadas com robos
 
     class RecebeDecisaoFinalLinha1(OneShotBehaviour):
         async def run(self):   
@@ -55,10 +53,13 @@ class LinhaProducao2Agent(Agent):
             msg = await self.receive(timeout=10)
             try:
                 if json.loads(msg.body)["2ndbest"]=="linha1@jabbers.one" and msg.metadata["performative"] == LinhaProducaoOntologia.INFORM:  
-                    print(f"{self.agent.jid}: Aguardando decisão final...")
-                    LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 3)
-                    print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos") 
-                    self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
+                    if LinhaProducao2Agent.stateBusy == False:
+                        print(f"{self.agent.jid}: Aguardando decisão final...")
+                        LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 3)
+                        LinhaProducao2Agent.stateBusy = True
+                        print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos") 
+                        self.agent.add_behaviour(self.agent.ContaDefeitos()) 
+                        self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
                     
             except:
                 melhorLinha = ""
@@ -78,15 +79,21 @@ class LinhaProducao2Agent(Agent):
 
                     if melhorLinha == "linha2@jabbers.one":
                         await sendMessage(self, self.agent.jid, "linha3@jabbers.one", "performative", {"2ndbest": melhorLinha}, LinhaProducaoOntologia.INFORM)
-                        LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 2)
-                        print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos")
-                        self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
+                        if LinhaProducao2Agent.stateBusy == False:
+                            LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 2)
+                            LinhaProducao2Agent.stateBusy = True
+                            print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos")
+                            self.agent.add_behaviour(self.agent.ContaDefeitos()) 
+                            self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
                     else:
                         melhorLinha = "linha3@jabbers.one"
                         await sendMessage(self, self.agent.jid, "linha3@jabbers.one", "performative", {"2ndbest": melhorLinha}, LinhaProducaoOntologia.INFORM)
-                        LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 3)
-                        print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos")   
-                        self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())       
+                        if LinhaProducao2Agent.stateBusy == False:
+                            LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 3)
+                            LinhaProducao2Agent.stateBusy = True
+                            print(f"{self.agent.jid}: sou a pior linha e enviar mensagem a robos") 
+                            self.agent.add_behaviour(self.agent.ContaDefeitos())   
+                            self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())       
 
 
     class RecebeRespostaLinha3(OneShotBehaviour):
@@ -98,13 +105,19 @@ class LinhaProducao2Agent(Agent):
                     print(f"{self.agent.jid}: Recebeu a seguinte decisão:  {msg.body}")  
                     if json.loads(msg.body)["best"]=="linha3@jabbers.one":
                         await sendMessage(self, self.agent.jid, "linha1@jabbers.one", "performative", {"2ndbest": "linha2@jabbers.one"}, LinhaProducaoOntologia.INFORM)     
-                        LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 2)
-                        print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos") 
-                        self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
+                        if LinhaProducao2Agent.stateBusy == False:
+                            LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 2)
+                            LinhaProducao2Agent.stateBusy = True
+                            print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos") 
+                            self.agent.add_behaviour(self.agent.ContaDefeitos()) 
+                            self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
                     else:
-                        LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 1)
-                        print(f"{self.agent.jid}: envia mensagem aos robos a dizer que foi a primeira")  
-                        self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())                   
+                        if LinhaProducao2Agent.stateBusy == False:
+                            LinhaProducao2Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao2Agent.encomendas, 1)
+                            LinhaProducao2Agent.stateBusy = True
+                            print(f"{self.agent.jid}: envia mensagem aos robos a dizer que foi a primeira")  
+                            self.agent.add_behaviour(self.agent.ContaDefeitos()) 
+                            self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())                   
 
     class RecebePropostaDeTroca(OneShotBehaviour):
             async def run(self):
@@ -119,27 +132,30 @@ class LinhaProducao2Agent(Agent):
 
     class ContaDefeitos(OneShotBehaviour):
         async def run(self):
-            LinhaProducao2Agent.rateLinha2
             LinhaProducao2Agent.rateLinha2 = 0.0
-            com_defeito = 0
-
-            while LinhaProducao2Agent.encomendaFinal is None:
-                await asyncio.sleep(10)
 
             await asyncio.sleep(15)
             tamahoEncomenda = LinhaProducao2Agent.encomendaFinal["quantidade"]
-            for i in range(0, tamahoEncomenda): 
+            while True:
+                com_defeito = 0
+                contagemTamanho = 1
                 defeito = random.randint(0, 1)
                 if defeito == 1:
                     com_defeito += 1
                 if com_defeito==0:
                     LinhaProducao2Agent.rateLinha2=0
-                LinhaProducao2Agent.rateLinha2 = (com_defeito / (i+1)) * 100
-                
-                if LinhaProducao2Agent.rateLinha2 > 80.0:
+                LinhaProducao2Agent.rateLinha2 = (com_defeito / (contagemTamanho+1)) * 100
+    
+                if LinhaProducao2Agent.rateLinha2 > 80.0 and contagemTamanho>5:
                     self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
                     await asyncio.sleep(300) 
-            
+
+                if (contagemTamanho - com_defeito) == tamahoEncomenda:
+                    LinhaProducao2Agent.stateBusy = False
+                    print(f"{self.agent.jid}: Acabou a encomenda")
+                    #voltar a escolhar encomenda 
+                    break
+                contagemTamanho = contagemTamanho + 1
                 await asyncio.sleep(20)
 
     class AtingiuLimitePercentagem(OneShotBehaviour):
@@ -151,4 +167,3 @@ class LinhaProducao2Agent(Agent):
         print(f"Linha de produção {self.jid} inicializada.")
         self.add_behaviour(self.SetReadyBehav())
         self.add_behaviour(self.RecebePropostasLinha1())
-        self.add_behaviour(self.ContaDefeitos())
