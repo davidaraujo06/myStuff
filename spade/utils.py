@@ -72,21 +72,28 @@ async def atingiuLimite(nomeLinha1, nomeLinha2, percentagem_defeito,self, LinhaP
             rateLinha2 = json.loads(msgLinha2.body)["rate"]
 
             if percentagem_defeito > float(rateLinha1) or percentagem_defeito > float(rateLinha2) or percentagem_defeito > 0.0: 
+
                 if float(rateLinha1) > float(rateLinha2):
                     await sendMessage(self, self.agent.jid, nomeLinha2, "performative", {"encomenda": encomendaFinal}, LinhaProducaoOntologia.INFORM)
                     await asyncio.sleep(10)
                     msgLinhaFinal = await self.receive(timeout=10) 
                     print(f"{self.agent.jid}: recebe encomenda")
                     print(msgLinhaFinal)
+                    return json.loads(msgLinhaFinal.body)["encomenda"]
                 elif float(rateLinha1) < float(rateLinha2):
                     await sendMessage(self, self.agent.jid, nomeLinha1, "performative", {"encomenda": encomendaFinal}, LinhaProducaoOntologia.INFORM)
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(10)
                     msgLinhaFinal = await self.receive(timeout=10) 
                     print(f"{self.agent.jid}: recebe encomenda")
                     print(msgLinhaFinal.body)
+                    return json.loads(msgLinhaFinal.body)["encomenda"]
+                else:
+                    print("Nao houve troca pois as outras linhas tem este rate: " + str(nomeLinha1) + "-->" + str(rateLinha1) + "..." +  str(nomeLinha2) + "-->" + str(rateLinha2) + "\ne a " + f"{self.agent.jid}: linha que precisava de troca tem : "+ str(rateLinha2)) 
+                    return 0
+
             else:
                 print("Nao houve troca pois as outras linhas tem este rate: " + str(nomeLinha1) + "-->" + str(rateLinha1) + "..." +  str(nomeLinha2) + "-->" + str(rateLinha2) + "\ne a " + f"{self.agent.jid}: linha que precisava de troca tem : "+ str(rateLinha2)) 
-
+                return 0
             # se for igual não faz nada        
 
             #informa os robos que houve uma troca e quer uma nova encomenda
@@ -94,13 +101,16 @@ async def atingiuLimite(nomeLinha1, nomeLinha2, percentagem_defeito,self, LinhaP
 async def recebePropostaTroca(self, LinhaProducaoOntologia, rateAtual, encomendaFinal, msgLinha):
     await sendMessage(self, self.agent.jid, str(msgLinha.sender), "performative", {"rate":  rateAtual}, LinhaProducaoOntologia.INFORM)
     
-    await asyncio.sleep(15)
+    await asyncio.sleep(25)
     #recebe mensagem de troca caso seja para ele
     msgLinhaFinal = await self.receive(timeout=10)
     if msgLinhaFinal:
         print(f"{self.agent.jid}: recebe encomenda")
         print(msgLinhaFinal.body)
         await sendMessage(self, self.agent.jid, str(msgLinhaFinal.sender), "performative", {"encomenda":  encomendaFinal}, LinhaProducaoOntologia.INFORM)
+        return json.loads(msgLinhaFinal.body)["encomenda"]
+    else:
+        return 0
         #envia mensagem aos robos
 
 
