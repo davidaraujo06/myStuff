@@ -55,9 +55,7 @@ class LinhaProducao3Agent(Agent):
                     LinhaProducao3Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao3Agent.encomendas, 1)
                     LinhaProducao3Agent.stateBusy = True
                     print(LinhaProducao3Agent.encomendaFinal)
-                    self.agent.add_behaviour(self.agent.ContaDefeitos()) 
-                    self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
-                    self.agent.add_behaviour(self.agent.IniciaNovo())
+                    self.agent.add_behaviour(self.agent.IniciaEncomenda()) 
                     print(f"{self.agent.jid}: envia mensagem aos robos a dizer que foi o primeiro")  
             else: 
 
@@ -88,19 +86,20 @@ class LinhaProducao3Agent(Agent):
                             LinhaProducao3Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao3Agent.encomendas, 2) 
                             LinhaProducao3Agent.stateBusy = True
                             print(LinhaProducao3Agent.encomendaFinal)
-                            self.agent.add_behaviour(self.agent.ContaDefeitos()) 
-                            self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())  
-                            self.agent.add_behaviour(self.agent.RecebePropostaLinhas())
+                            self.agent.add_behaviour(self.agent.IniciaEncomenda()) 
                             print(f"{self.agent.jid}: fica com a 2nd melhor encomenda e envia aos robos") 
                     else:
                         if LinhaProducao3Agent.stateBusy == False:
                             LinhaProducao3Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao3Agent.encomendas, 3)
                             LinhaProducao3Agent.stateBusy = True
                             print(LinhaProducao3Agent.encomendaFinal)
-                            self.agent.add_behaviour(self.agent.ContaDefeitos()) 
-                            self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
-                            self.agent.add_behaviour(self.agent.RecebePropostaLinhas())
-                            print(f"{self.agent.jid}: envia mensagem aos robos a dizer que foi o último")        
+                            self.agent.add_behaviour(self.agent.IniciaEncomenda()) 
+                            print(f"{self.agent.jid}: envia mensagem aos robos a dizer que foi o último")  
+
+    class IniciaEncomenda(OneShotBehaviour):
+        async def run(self):
+            self.agent.add_behaviour(self.agent.ContaDefeitos())
+            self.agent.add_behaviour(self.agent.RecebePropostaLinhas())                               
 
     class RecebePropostaDeTroca(OneShotBehaviour):
             async def run(self):
@@ -123,10 +122,11 @@ class LinhaProducao3Agent(Agent):
     class IniciaRecebePropostaNovo(OneShotBehaviour):
             async def run(self):
                 asyncio.sleep(5)
-                self.agent.add_behaviour(self.agent.RecebePropostaDeTroca())                  
+                self.agent.add_behaviour(self.agent.RecebePropostaDeTroca()) 
 
     class ContaDefeitos(OneShotBehaviour):
         async def run(self):
+            #TODO: Esperar pela decisão que posso iniciar a contagem, se for diferente de 0 então siga
             LinhaProducao3Agent.rateLinha3 = 0.0
 
             await asyncio.sleep(15)
@@ -143,7 +143,7 @@ class LinhaProducao3Agent(Agent):
     
                 if LinhaProducao3Agent.rateLinha3 > 80.0 and contagemTamanho>5:
                     self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
-                    await asyncio.sleep(300) 
+                    
 
                 if (contagemTamanho - com_defeito) == tamahoEncomenda:
                     LinhaProducao3Agent.stateBusy = False

@@ -1,6 +1,7 @@
 from spade.message import Message
 from spade.template import Template
 from datetime import datetime
+from paho.mqtt import client as mqtt_client
 import json, asyncio
 
 async def sendMessage(self, sender, receiver, typeMessage, message_content, metadata):
@@ -10,7 +11,7 @@ async def sendMessage(self, sender, receiver, typeMessage, message_content, meta
     else:
         message_body = message_content
     
-        # Cria e configura o template para comparação
+    # Cria e configura o template para comparação
     template = Template()
     template.sender = str(sender)
     template.to = receiver
@@ -32,12 +33,11 @@ async def sendMessage(self, sender, receiver, typeMessage, message_content, meta
     await self.send(msg)
     print("Message sent!")
 
-def carregar_encomendas(filename):
+def carregarEncomendas(filename):
     with open(filename, 'r') as file:
         return json.load(file)
 
-# Função para salvar encomendas no arquivo JSON
-def salvar_encomendas(filename, data):
+def guardarEncomendas(filename, data):
     with open(filename, 'w') as file:
         json.dump(data, file, indent=4)     
 
@@ -53,10 +53,10 @@ async def encomenda_prioritaria(clientes, posicao):
     # Retorna o cliente correspondente à posição desejada
     cliente_prioritario = clientes_ordenados[posicao - 1]
 
-    data = carregar_encomendas("./encomendas.json")
+    data = carregarEncomendas("./encomendas.json")
 
     data["clientes"].pop(cliente_prioritario)
-    salvar_encomendas("./encomendas.json", data)
+    guardarEncomendas("./encomendas.json", data)
 
     return clientes[cliente_prioritario]
 
@@ -96,8 +96,6 @@ async def atingiuLimite(nomeLinha1, nomeLinha2, percentagem_defeito,self, LinhaP
                 return 0
             # se for igual não faz nada        
 
-            #informa os robos que houve uma troca e quer uma nova encomenda
-
 async def recebePropostaTroca(self, LinhaProducaoOntologia, rateAtual, encomendaFinal, msgLinha):
     await sendMessage(self, self.agent.jid, str(msgLinha.sender), "performative", {"rate":  rateAtual}, LinhaProducaoOntologia.INFORM)
     
@@ -114,4 +112,27 @@ async def recebePropostaTroca(self, LinhaProducaoOntologia, rateAtual, encomenda
         #envia mensagem aos robos
 
 
-     
+# subscriber------------------------------------------------------------------       
+ 
+mqtt_broker = 'localhost'
+mqtt_port = 1883
+mqtt_user = 'corkai'
+password = 'corkai123'
+
+def on_connect(client, userdata, flags, rc):
+    print('on_connect')
+    if rc == 0:
+        print("Connected to MQTT Broker!")
+    else:
+        print("Failed to connect, return code %d\n", rc)
+
+def on_message(client, userdata, msg):
+    print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
+
+def run():
+    client = mqtt_client.Client()
+    client.username_pw_set(username=mqtt_user, password=password)
+    client.on_connect = on_connect
+    client.connect(mqtt_broker, mqtt_port)
+    client.on_message = on_message
+    return client
