@@ -41,7 +41,7 @@ class MQTTClientPublisher:
 #     publisher.run()
 
 #     topic = "/b1/stop/mqtt"
-#     message = True
+#     message = 1
 #     result = publisher.publish(topic, message)
 
 #     print(f"Published `{message}` to topic `{topic}` with result: {result}")

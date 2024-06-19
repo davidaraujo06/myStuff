@@ -159,6 +159,13 @@ class LinhaProducao1Agent(Agent):
                 self.agent.add_behaviour(self.agent.ContaDefeitos()) 
             else:    
                 LinhaProducao1Agent.encomendaFinal = result
+                publisher = MQTTClientPublisher(LinhaProducao1Agent.mqtt_broker , LinhaProducao1Agent.mqtt_port, LinhaProducao1Agent.mqtt_user, LinhaProducao1Agent.password)
+                publisher.run()
+                message = True
+                publisher.publish(LinhaProducao1Agent.topicStop, message)
+                publisher.client.loop_stop()
+                publisher.client.disconnect()
+                self.agent.add_behaviour(self.agent.EnviaEncomendaROS())
                 self.agent.add_behaviour(self.agent.ContaDefeitos()) 
 
 
@@ -229,6 +236,14 @@ class LinhaProducao1Agent(Agent):
                     self.agent.add_behaviour(self.agent.IniciaRecebePropostaNovo()) 
                 else:    
                     LinhaProducao1Agent.encomendaFinal = result
+                    publisher = MQTTClientPublisher(LinhaProducao1Agent.mqtt_broker , LinhaProducao1Agent.mqtt_port, LinhaProducao1Agent.mqtt_user, LinhaProducao1Agent.password)
+                    publisher.run()
+
+                    message = True
+                    publisher.publish(LinhaProducao1Agent.topicStop, message)
+                    publisher.client.loop_stop()
+                    publisher.client.disconnect()
+                    self.agent.add_behaviour(self.agent.EnviaEncomendaROS())
                     self.agent.add_behaviour(self.agent.ContaDefeitos()) 
                     self.agent.add_behaviour(self.agent.IniciaRecebePropostaNovo())  
 
@@ -259,7 +274,7 @@ class LinhaProducao1Agent(Agent):
         async def run(self):
             publisher = MQTTClientPublisher(LinhaProducao1Agent.mqtt_broker , LinhaProducao1Agent.mqtt_port, LinhaProducao1Agent.mqtt_user, LinhaProducao1Agent.password)
             publisher.run()
-            print(str(LinhaProducao1Agent.encomendaFinal["tipo"]))
+    
             message = str(LinhaProducao1Agent.encomendaFinal["tipo"])
             publisher.publish(LinhaProducao1Agent.topicOrder, message)
             publisher.client.loop_stop()
