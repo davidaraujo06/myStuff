@@ -270,7 +270,7 @@ class LinhaProducao1Agent(Agent):
                         await asyncio.sleep(1)  
 
     
-    class EnviaEncomendaROS(CyclicBehaviour):   
+    class EnviaEncomendaROS(OneShotBehaviour):   
         async def run(self):
             publisher = MQTTClientPublisher(LinhaProducao1Agent.mqtt_broker , LinhaProducao1Agent.mqtt_port, LinhaProducao1Agent.mqtt_user, LinhaProducao1Agent.password)
             publisher.run()
