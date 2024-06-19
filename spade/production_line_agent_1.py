@@ -18,7 +18,7 @@ class LinhaProducao1Agent(Agent):
     stateBusy = False
     encomendas = None
 
-    mqtt_broker = '172.18.131.112'
+    mqtt_broker = '192.168.137.202'
     mqtt_port = 1883
     mqtt_user = 'corkai'
     password = 'corkai123'
@@ -161,7 +161,7 @@ class LinhaProducao1Agent(Agent):
                 LinhaProducao1Agent.encomendaFinal = result
                 publisher = MQTTClientPublisher(LinhaProducao1Agent.mqtt_broker , LinhaProducao1Agent.mqtt_port, LinhaProducao1Agent.mqtt_user, LinhaProducao1Agent.password)
                 publisher.run()
-                message = 1
+                message = int(1)
                 publisher.publish(LinhaProducao1Agent.topicStop, message)
                 publisher.client.loop_stop()
                 publisher.client.disconnect()
@@ -212,7 +212,7 @@ class LinhaProducao1Agent(Agent):
                     publisher = MQTTClientPublisher(LinhaProducao1Agent.mqtt_broker , LinhaProducao1Agent.mqtt_port, LinhaProducao1Agent.mqtt_user, LinhaProducao1Agent.password)
                     publisher.run()
 
-                    message = 1
+                    message = int(1)
                     publisher.publish(LinhaProducao1Agent.topicStop, message)
                     publisher.client.loop_stop()
                     publisher.client.disconnect()
@@ -239,7 +239,7 @@ class LinhaProducao1Agent(Agent):
                     publisher = MQTTClientPublisher(LinhaProducao1Agent.mqtt_broker , LinhaProducao1Agent.mqtt_port, LinhaProducao1Agent.mqtt_user, LinhaProducao1Agent.password)
                     publisher.run()
 
-                    message = 1
+                    message = int(1)
                     publisher.publish(LinhaProducao1Agent.topicStop, message)
                     publisher.client.loop_stop()
                     publisher.client.disconnect()
