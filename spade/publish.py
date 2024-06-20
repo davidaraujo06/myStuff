@@ -32,7 +32,7 @@ class MQTTClientPublisher:
 
 # # Exemplo de uso
 # if __name__ == "__main__":
-#     mqtt_broker = '172.18.131.112'
+#     mqtt_broker = '192.168.137.202'
 #     mqtt_port = 1883
 #     mqtt_user = 'corkai'
 #     password = 'corkai123'
@@ -41,7 +41,7 @@ class MQTTClientPublisher:
 #     publisher.run()
 
 #     topic = "/b1/stop/mqtt"
-#     message = 1
+#     message = int(1)
 #     result = publisher.publish(topic, message)
 
 #     print(f"Published `{message}` to topic `{topic}` with result: {result}")
