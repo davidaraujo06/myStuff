@@ -202,7 +202,7 @@ class LinhaProducao1Agent(Agent):
                 if LinhaProducao1Agent.rateLinha1 > 80.0 and contagemTamanho>5:
                     self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
 
-                print(f"{self.agent.jid}: " + str(defeito) + "..." + str(semDefeito) + "..." + contagemTamanho + "..."  + str(LinhaProducao1Agent.rateLinha1))
+                print(f"{self.agent.jid}: " + str(defeito) + "..." + str(semDefeito) + "..." + str(contagemTamanho) + "..."  + str(LinhaProducao1Agent.rateLinha1))
                 if semDefeito == tamahoEncomenda:
                     mqtt_client_instance.client.loop_stop()
                     mqtt_client_instance.client.disconnect()
