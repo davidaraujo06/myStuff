@@ -1,6 +1,8 @@
 from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour
 from utils import *
+from subscriber import MQTTClientSubscriber
+from publish import MQTTClientPublisher
 import json, random, asyncio
 
 class LinhaProducaoOntologia:
@@ -12,6 +14,15 @@ class LinhaProducao3Agent(Agent):
     encomendaFinal = None
     encomendas = None
     stateBusy = False
+
+    mqtt_broker = '192.168.137.202'
+    mqtt_port = 1883
+    mqtt_user = 'corkai'
+    password = 'corkai123'
+    topicDetect = "/b3/defect_found/mqtt"
+    topicOrder = "/b3/cork_type/mqtt"  
+    topicStop = "/b3/stop/mqtt"  
+    
     class SetReadyBehav(OneShotBehaviour):
         async def run(self):
             print(f"{self.agent.jid}: Enviando mensagem de pronto...")
@@ -53,6 +64,7 @@ class LinhaProducao3Agent(Agent):
                 await sendMessage(self, self.agent.jid, str(msg.sender), "performative", {"best": "linha3@jabbers.one"}, LinhaProducaoOntologia.INFORM)
                 if LinhaProducao3Agent.stateBusy == False:
                     LinhaProducao3Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao3Agent.encomendas, 1)
+                    self.agent.add_behaviour(self.agent.EnviaEncomendaROS())  
                     LinhaProducao3Agent.stateBusy = True
                     print(LinhaProducao3Agent.encomendaFinal)
                     self.agent.add_behaviour(self.agent.IniciaEncomenda()) 
@@ -84,6 +96,7 @@ class LinhaProducao3Agent(Agent):
                     if json.loads(msg.body)["2ndbest"]=="linha3@jabbers.one": 
                         if LinhaProducao3Agent.stateBusy == False:    
                             LinhaProducao3Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao3Agent.encomendas, 2) 
+                            self.agent.add_behaviour(self.agent.EnviaEncomendaROS())  
                             LinhaProducao3Agent.stateBusy = True
                             print(LinhaProducao3Agent.encomendaFinal)
                             self.agent.add_behaviour(self.agent.IniciaEncomenda()) 
@@ -91,6 +104,7 @@ class LinhaProducao3Agent(Agent):
                     else:
                         if LinhaProducao3Agent.stateBusy == False:
                             LinhaProducao3Agent.encomendaFinal = await encomenda_prioritaria(LinhaProducao3Agent.encomendas, 3)
+                            self.agent.add_behaviour(self.agent.EnviaEncomendaROS())  
                             LinhaProducao3Agent.stateBusy = True
                             print(LinhaProducao3Agent.encomendaFinal)
                             self.agent.add_behaviour(self.agent.IniciaEncomenda()) 
@@ -116,6 +130,15 @@ class LinhaProducao3Agent(Agent):
                     self.agent.add_behaviour(self.agent.IniciaRecebePropostaNovo()) 
                 else:    
                     LinhaProducao3Agent.encomendaFinal = result
+                    LinhaProducao3Agent.encomendaFinal = result
+                    publisher = MQTTClientPublisher(LinhaProducao3Agent.mqtt_broker , LinhaProducao3Agent.mqtt_port, LinhaProducao3Agent.mqtt_user, LinhaProducao3Agent.password)
+                    publisher.run()
+
+                    message = int(1)
+                    publisher.publish(LinhaProducao3Agent.topicStop, message)
+                    publisher.client.loop_stop()
+                    publisher.client.disconnect()
+                    self.agent.add_behaviour(self.agent.EnviaEncomendaROS())
                     self.agent.add_behaviour(self.agent.ContaDefeitos())
                     self.agent.add_behaviour(self.agent.IniciaRecebePropostaNovo())  
 
@@ -126,33 +149,53 @@ class LinhaProducao3Agent(Agent):
 
     class ContaDefeitos(OneShotBehaviour):
         async def run(self):
-            #TODO: Esperar pela decisão que posso iniciar a contagem, se for diferente de 0 então siga
+            mqtt_client_instance = MQTTClientSubscriber(LinhaProducao3Agent.mqtt_broker , LinhaProducao3Agent.mqtt_port, LinhaProducao3Agent.mqtt_user, LinhaProducao3Agent.password, LinhaProducao3Agent.topicDetect)
+            mqtt_client_instance.run()
+
+            while True:
+                last_payload = mqtt_client_instance.get_last_payload()
+                valores = last_payload.split('/')
+                valor1 = int(valores[0])
+                valor2 = int(valores[1])
+                
+                if (valor1 + valor2) >= 1:
+                    print(f"{self.agent.jid}: inicia contagem de defeito")
+                    break
+            
             LinhaProducao3Agent.rateLinha3 = 0.0
 
-            await asyncio.sleep(15)
             tamahoEncomenda = LinhaProducao3Agent.encomendaFinal["quantidade"]
-            com_defeito = 0
-            contagemTamanho = 1
+            defeito = 0
+            contagemTamanho = 0
             while True:
-                defeito = random.randint(0, 1)
-                if defeito == 1:
-                    com_defeito += 1
-                if com_defeito==0:
+                last_payload = mqtt_client_instance.get_last_payload()
+                valores = last_payload.split('/')
+                defeito = int(valores[0])
+                semDefeito = int(valores[1])
+                contagemTamanho = defeito + semDefeito
+                if defeito==0:
                     LinhaProducao3Agent.rateLinha3=0
-                LinhaProducao3Agent.rateLinha3 = (com_defeito / (contagemTamanho+1)) * 100
+                LinhaProducao3Agent.rateLinha3 = (defeito / (contagemTamanho+1)) * 100
     
                 if LinhaProducao3Agent.rateLinha3 > 80.0 and contagemTamanho>5:
                     self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
                     
-
-                if (contagemTamanho - com_defeito) == tamahoEncomenda:
+                print(f"{self.agent.jid}: " + str(defeito) + "..." + str(semDefeito) + "..." + contagemTamanho + "..."  + str(LinhaProducao3Agent.rateLinha3))
+                if semDefeito == tamahoEncomenda:
+                    mqtt_client_instance.client.loop_stop()
+                    mqtt_client_instance.client.disconnect()
                     LinhaProducao3Agent.stateBusy = False
+                    publisher = MQTTClientPublisher(LinhaProducao3Agent.mqtt_broker , LinhaProducao3Agent.mqtt_port, LinhaProducao3Agent.mqtt_user, LinhaProducao3Agent.password)
+                    publisher.run()
+
+                    message = int(1)
+                    publisher.publish(LinhaProducao3Agent.topicStop, message)
+                    publisher.client.loop_stop()
+                    publisher.client.disconnect()
                     print(f"{self.agent.jid}: Acabou a encomenda")
                     await sendMessage(self, self.agent.jid, "linha1@jabbers.one", "performative", {"terminou": True}, LinhaProducaoOntologia.INFORM)
                     #voltar a escolhar encomenda 
                     break
-                contagemTamanho = contagemTamanho + 1
-                await asyncio.sleep(20)
 
     class AtingiuLimitePercentagem(OneShotBehaviour):
         async def run(self):
@@ -162,7 +205,24 @@ class LinhaProducao3Agent(Agent):
                 self.agent.add_behaviour(self.agent.ContaDefeitos()) 
             else:    
                 LinhaProducao3Agent.encomendaFinal = result
-                self.agent.add_behaviour(self.agent.ContaDefeitos())       
+                publisher = MQTTClientPublisher(LinhaProducao3Agent.mqtt_broker , LinhaProducao3Agent.mqtt_port, LinhaProducao3Agent.mqtt_user, LinhaProducao3Agent.password)
+                publisher.run()
+                message = int(1)
+                publisher.publish(LinhaProducao3Agent.topicStop, message)
+                publisher.client.loop_stop()
+                publisher.client.disconnect()
+                self.agent.add_behaviour(self.agent.EnviaEncomendaROS())
+                self.agent.add_behaviour(self.agent.ContaDefeitos())  
+
+    class EnviaEncomendaROS(OneShotBehaviour):   
+        async def run(self):
+            publisher = MQTTClientPublisher(LinhaProducao3Agent.mqtt_broker , LinhaProducao3Agent.mqtt_port, LinhaProducao3Agent.mqtt_user, LinhaProducao3Agent.password)
+            publisher.run()
+    
+            message = str(LinhaProducao3Agent.encomendaFinal["tipo"])
+            publisher.publish(LinhaProducao3Agent.topicOrder, message)
+            publisher.client.loop_stop()
+            publisher.client.disconnect()                    
 
     async def setup(self):
         print(f"Linha de produção {self.jid} inicializada.")

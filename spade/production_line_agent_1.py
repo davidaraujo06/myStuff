@@ -7,7 +7,6 @@ from publish import MQTTClientPublisher
 import json, asyncio, random
 
 class LinhaProducaoOntologia:
-    REQUEST = "request"
     INFORM = "inform"
     PROPOSE = "propose"
 
@@ -53,7 +52,7 @@ class LinhaProducao1Agent(Agent):
                 await sendMessage(self, self.agent.jid, "linha2@jabbers.one", "performative", LinhaProducao1Agent.encomendas, LinhaProducaoOntologia.PROPOSE)  
                 self.agent.add_behaviour(self.agent.RecebeRespostaLinha2())
                 #dar tempo de todas as linhas comunicarem e escolherem as encomendas
-                await asyncio.sleep(60)
+                await asyncio.sleep(30)
             else:
                 print("Acabaram as encomendas")    
 
@@ -187,7 +186,6 @@ class LinhaProducao1Agent(Agent):
             
             LinhaProducao1Agent.rateLinha1 = 0.0
 
-            await asyncio.sleep(15)
             tamahoEncomenda = LinhaProducao1Agent.encomendaFinal["quantidade"]
             defeito = 0
             contagemTamanho = 0
@@ -204,7 +202,8 @@ class LinhaProducao1Agent(Agent):
                 if LinhaProducao1Agent.rateLinha1 > 80.0 and contagemTamanho>5:
                     self.agent.add_behaviour(self.agent.AtingiuLimitePercentagem())  
 
-                if (contagemTamanho - defeito) == tamahoEncomenda:
+                print(f"{self.agent.jid}: " + str(defeito) + "..." + str(semDefeito) + "..." + contagemTamanho + "..."  + str(LinhaProducao1Agent.rateLinha1))
+                if semDefeito == tamahoEncomenda:
                     mqtt_client_instance.client.loop_stop()
                     mqtt_client_instance.client.disconnect()
                     LinhaProducao1Agent.stateBusy = False
@@ -219,6 +218,7 @@ class LinhaProducao1Agent(Agent):
 
                     print(f"{self.agent.jid}: Acabou a encomenda")
                     self.agent.add_behaviour(self.agent.ProposeEncomendaBehav())
+                    #voltar a escolhar encomenda 
                     break
 
     class RecebePropostaDeTroca(OneShotBehaviour):
