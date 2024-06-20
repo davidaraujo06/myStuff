@@ -1,13 +1,13 @@
 from paho.mqtt import client as mqtt_client
 
 class MQTTClientSubscriber:
-    def __init__(self, broker, port, username, password, topic):
+    def __init__(self, broker, port, username, password, topic, last_payload):
         self.broker = broker
         self.port = port
         self.username = username
         self.password = password
         self.topic = topic
-        self.last_payload = "0/0"
+        self.last_payload = last_payload
 
         # Configuração do cliente MQTT
         self.client = mqtt_client.Client()

@@ -149,7 +149,7 @@ class LinhaProducao3Agent(Agent):
 
     class ContaDefeitos(OneShotBehaviour):
         async def run(self):
-            mqtt_client_instance = MQTTClientSubscriber(LinhaProducao3Agent.mqtt_broker , LinhaProducao3Agent.mqtt_port, LinhaProducao3Agent.mqtt_user, LinhaProducao3Agent.password, LinhaProducao3Agent.topicDetect)
+            mqtt_client_instance = MQTTClientSubscriber(LinhaProducao3Agent.mqtt_broker , LinhaProducao3Agent.mqtt_port, LinhaProducao3Agent.mqtt_user, LinhaProducao3Agent.password, LinhaProducao3Agent.topicDetect, "0/0")
             mqtt_client_instance.run()
 
             while True:
