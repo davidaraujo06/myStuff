@@ -1,108 +1,109 @@
+import os
 import pandas as pd
 import re
-import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Load data from the first CSV, skipping the first 2 unnecessary rows
-curva_precos = pd.read_csv('./data/curva_pbc_uof_20220301.1', sep=';', encoding='latin1', skiprows=2)
+# Paths to directories
+curve_price_dir = './data/curvasPreco'  # Directory with curve price CSV files (2022 and 2023)
+market_price_dir = './data/mercadoDiario'  # Directory with market price CSV files (2022 and 2023)
+units_path = './data/units-info.xlsx'
 
-# Load data from the second CSV, skipping the first row and adding column names
-preco_mercado = pd.read_csv('./data/marginalpdbcpt_20220301.1', sep=';', encoding='latin1', skiprows=1, header=None)
+# Load the units data
+units = pd.read_excel(units_path, engine='openpyxl')
 
-# Path to the XLSX file
-units = './data/units-info.xlsx'
+# Define columns for market price and curve price
+columns_market_price = ['Year', 'Month', 'Day', 'Hour', 'PricePT', 'PriceES', 'extra']
+columns_curve_price = ['Pais', 'Fecha', 'Unidad', 'Tipo Oferta', 'Energía Compra/Venta', 'Precio Compra/Venta', 'Ofertada (O)/Casada (C)', 'Hora']
 
-units = pd.read_excel(units, engine='openpyxl') 
+# Function to load and process CSV files
+def load_and_process_csv(file_path, columns, date_format='%Y%m%d'):
+    skiprows = 2 if 'curva_pbc_uof' in file_path else 1
+    df = pd.read_csv(file_path, sep=';', encoding='latin1', skiprows=skiprows, header=None)
+    df.columns = columns
 
-def format_data_12(curva_precos, preco_mercado):
-    # Rename columns in the second CSV
-    preco_mercado.columns = ['Year', 'Month', 'Day', 'Hour', 'PricePT', 'PriceES', 'extra']
+    if 'curva_pbc_uof' in file_path:
+        df = df.drop(columns=['Unnamed: 8'], errors='ignore')
+        df['Hora'] = df['Hora'].fillna(0).astype(int)
+        df['Fecha'] = pd.to_datetime(df['Fecha'], format='%d/%m/%Y')
+        df['datetime'] = df['Fecha'] + pd.to_timedelta(df['Hora'] - 1, unit='h')
+    else:
+        df = df.drop(columns=['extra'], errors='ignore')
+        df = df[df['Year'] != '*']
+        df['datetime'] = pd.to_datetime(df[['Year', 'Month', 'Day']]) + pd.to_timedelta(df['Hour'] - 1, unit='h')
 
-    # Remove the 'extra' column
-    preco_mercado = preco_mercado.drop(columns=['extra'])
+    return df
 
-    # Remove rows containing invalid characters (like '*')
-    preco_mercado = preco_mercado[preco_mercado['Year'] != '*']
+# Function to merge data for a given date
+def process_date(year, month, day):
+    date_str = f'{year}{month:02d}{day:02d}'
+    market_file = os.path.join(market_price_dir, str(year), f'marginalpdbcpt_{date_str}.1')
+    curve_file = os.path.join(curve_price_dir, str(year), str(month), f'curva_pbc_uof_{date_str}.1')
 
-    # Fill missing values in the 'Hour' column of the first CSV with 0 (or any appropriate default value)
-    curva_precos['Hora'] = curva_precos['Hora'].fillna(0)
+    if os.path.exists(market_file) and os.path.exists(curve_file):
+        market_price = load_and_process_csv(market_file, columns_market_price)
+        curve_price = load_and_process_csv(curve_file, columns_curve_price)
 
-    # Convert the 'Hour' column to integer
-    curva_precos['Hora'] = curva_precos['Hora'].astype(int)
+        first_csv = pd.merge(curve_price, market_price, on='datetime', how='inner')
+        first_csv.rename(columns={
+            'Pais': 'Bidding Area',
+            'Fecha': 'Date',
+            'Unidad': 'Unit',
+            'Tipo Oferta': 'Offer Type',
+            'Energía Compra/Venta': 'Bid Energy',
+            'Precio Compra/Venta': 'Bid Price',
+            'Ofertada (O)/Casada (C)': 'Offered (O)/Matched (M)'
+        }, inplace=True)
 
-    # Convert date and hour columns from the first CSV to an appropriate format
-    curva_precos['Fecha'] = pd.to_datetime(curva_precos['Fecha'], format='%d/%m/%Y')
-    curva_precos['datetime'] = curva_precos['Fecha'] + pd.to_timedelta(curva_precos['Hora'] - 1, unit='h')
+        first_csv = first_csv.drop(columns=['Hora', 'Date', 'Offer Type', 'datetime'], errors='ignore')
 
-    # Convert year, month, day, and hour columns from the second CSV to an appropriate format
-    preco_mercado['datetime'] = pd.to_datetime(preco_mercado[['Year', 'Month', 'Day']]) + pd.to_timedelta(preco_mercado['Hour'] - 1, unit='h')
+        df_result_final = pd.merge(first_csv, units, on='Unit', how='inner')
 
-    return curva_precos, preco_mercado
+        columns_to_int = ['Year', 'Month', 'Day', 'Hour']
+        columns_to_string = ['Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Transaction Type', 'Offered (O)/Matched (M)']
+        columns_to_float = ['Capacity_2030', 'Bid Energy', 'Bid Price', 'PricePT', 'PriceES']
 
-curva_precos, preco_mercado = format_data_12(curva_precos, preco_mercado)
+        for column in columns_to_int:
+            df_result_final[column] = df_result_final[column].astype(int)
 
-# Create first CSV
-first_csv = pd.merge(curva_precos, preco_mercado, on='datetime', how='inner')
+        for column in columns_to_string:
+            df_result_final[column] = df_result_final[column].astype(str)
 
-def format_data_13(first_csv):
-    # Rename columns in the merged DataFrame
-    first_csv.rename(columns={
-        'Pais': 'Bidding Area',
-        'Fecha': 'Date',
-        'Unidad': 'Unit',
-        'Tipo Oferta': 'Offer Type',
-        'Energía Compra/Venta': 'Bid Energy',
-        'Precio Compra/Venta': 'Bid Price',
-        'Ofertada (O)/Casada (C)': 'Offered (O)/Matched (M)'
-    }, inplace=True)
+        for column in columns_to_float:
+            df_result_final[column] = df_result_final[column].apply(convert_to_float)
 
-    # Remove columns 'Hora', 'Date', 'Offer Type', 'datetime', and 'Unnamed: 8' from the final DataFrame
-    first_csv = first_csv.drop(columns=['Hora', 'Date', 'Offer Type', 'datetime', 'Unnamed: 8'])
-
-    return first_csv, units
-
-first_csv, units = format_data_13(first_csv)
-
-# Merge with 'units' DataFrame on 'Unit' column
-df_result_final = pd.merge(first_csv, units, on='Unit', how='inner')
-
-# Define new order for columns
-new_order = ['Year', 'Month', 'Day', 'Hour', 'Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Capacity_2030', 'Transaction Type', 'Offered (O)/Matched (M)', 'Bid Energy', 'Bid Price', 'PricePT', 'PriceES']
-
-# Reorder columns
-df_result_final = df_result_final[new_order]
+        return df_result_final
+    return None
 
 # Function to clean and convert number strings to floats
 def convert_to_float(value):
     if isinstance(value, str):
-        # Replace decimal comma with dot
         value = value.replace(',', '.')
-
-        # Use regular expression to remove non-numeric characters except decimal point
         value = re.sub(r'[^\d.-]', '', value)
-
-    # Convert to float
     return pd.to_numeric(value, errors='coerce')
 
-# Columns to convert
-columns_to_int = ['Year', 'Month', 'Day', 'Hour']
-columns_to_string = ['Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Transaction Type', 'Offered (O)/Matched (M)']
-columns_to_float = ['Capacity_2030', 'Bid Energy', 'Bid Price', 'PricePT', 'PriceES']
+# Main function to process all dates using threading
+def main():
+    all_data = []
+    years = [2022, 2023]
+    days_in_month = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
 
-# Apply specific conversions
-for column in columns_to_int:
-    df_result_final[column] = df_result_final[column].astype(int)
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = []
+        for year in years:
+            for month in range(1, 13):
+                for day in range(1, days_in_month[month] + 1):
+                    futures.append(executor.submit(process_date, year, month, day))
 
-for column in columns_to_string:
-    df_result_final[column] = df_result_final[column].astype(str)
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                all_data.append(result)
 
-for column in columns_to_float:
-    df_result_final[column] = df_result_final[column].apply(convert_to_float)
+    if all_data:
+        final_df = pd.concat(all_data, ignore_index=True)
+        pickle_file = 'df_result_final_2022_2023.pkl'
+        final_df.to_pickle(pickle_file)
+        print(f"DataFrame saved to {pickle_file}")
 
-# Save the final DataFrame to a new CSV file
-df_result_final.to_csv('resultado_final_completo.csv', index=False, sep=';', encoding='latin1')
-
-# Save DataFrame to a pickle file
-pickle_file = 'df_resultado_final.pkl'
-df_result_final.to_pickle(pickle_file)
-
-print(f"DataFrame saved to {pickle_file}")
+if __name__ == '__main__':
+    main()
