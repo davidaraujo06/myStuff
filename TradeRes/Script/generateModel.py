@@ -12,7 +12,7 @@ pickle_file_2023 = './PKLData/dfResultFinal2023.pkl'
 df_2023 = pd.read_pickle(pickle_file_2023)
 
 # Transformar as colunas especificadas em dummies para 2022 e 2023
-cols_to_transform = ['tecnology', 'transactyon type', 'tipo de oferta', 'biding area']
+cols_to_transform = ['Technology', 'Transaction Type', 'Offered (O)/Matched (M)', 'Bidding Area']
 df_2022_dummies = pd.get_dummies(df_2022, columns=cols_to_transform)
 df_2023_dummies = pd.get_dummies(df_2023, columns=cols_to_transform)
 
@@ -20,8 +20,8 @@ df_2023_dummies = pd.get_dummies(df_2023, columns=cols_to_transform)
 df_2022_dummies, df_2023_dummies = df_2022_dummies.align(df_2023_dummies, join='left', axis=1, fill_value=0)
 
 # Definir a variável alvo (y) e as características (X)
-# Supondo que a variável alvo seja chamada de 'target_column'
-target_column = 'Bid Price'  # Substitua pelo nome real da coluna alvo
+# Supondo que a variável alvo seja chamada de 'PricePT' (substitua pelo nome real)
+target_column = 'PricePT'
 X_train = df_2022_dummies.drop(columns=[target_column])
 y_train = df_2022_dummies[target_column]
 X_test = df_2023_dummies.drop(columns=[target_column])
