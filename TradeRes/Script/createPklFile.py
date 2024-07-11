@@ -74,7 +74,7 @@ def processDate(year, month, day):
 
             firstCSV = firstCSV.drop(columns=['Hora', 'Date', 'Offer Type', 'datetime', 'Unnamed: 8'])
 
-            dfResultFinal = pd.merge(firstCSV, units, on='Unit', how='inner')
+            dfResultFinal = pd.merge(firstCSV, units, on='Unit', how='left')
 
             new_order = ['Year', 'Month', 'Day', 'Hour', 'Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Capacity_2030', 'Transaction Type', 'Offered (O)/Matched (M)', 'Bid Energy', 'Bid Price', 'PricePT', 'PriceES']
             
@@ -93,6 +93,7 @@ def processDate(year, month, day):
             for column in columnsToFloat:
                 dfResultFinal[column] = dfResultFinal[column].apply(convertToFloat)
 
+            dfResultFinal = dfResultFinal.fillna('nan')
             print(f"Processed data for date {year}-{month:02d}-{day:02d}")
             return dfResultFinal
         else:
@@ -127,30 +128,31 @@ if marketFilesCount != curveFilesCount:
     raise ValueError(f"The number of files in {marketPriceDir} ({marketFilesCount}) and {curvePriceDir} ({curveFilesCount}) are not equal.")
 
 try:
-    allData = []
+    allData = {}
     years = sorted(int(year) for year in marketYears)
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = []
+        futures = {year: [] for year in years}
         for year in years:
             if year in marketYears:
                 for month in range(1, 13):
                     daysInMonth = getDaysInMonth(year, month)
                     for day in range(1, daysInMonth + 1):
-                        futures.append(executor.submit(processDate, year, month, day))                          
+                        futures[year].append(executor.submit(processDate, year, month, day))
 
-        for future in as_completed(futures):
-            result = future.result()
-            if result is not None:
-                allData.append(result)
+        for year in years:
+            allData[year] = []
+            for future in as_completed(futures[year]):
+                result = future.result()
+                if result is not None:
+                    allData[year].append(result)
 
-    if allData:
-        finalDF = pd.concat(allData, ignore_index=True)
-        finalDF = finalDF.sort_values(by=['Year', 'Month', 'Day', 'Hour'])
-        # Save the final DataFrame to a new CSV file
-        finalDF.to_csv('resultado_final_completo.csv', index=False, sep=';', encoding='latin1')
-        print(f"DataFrame saved as csv")
-        pickleFile = 'dfResultFinal.pkl'
-        finalDF.to_pickle(pickleFile)
-        print(f"DataFrame saved to {pickleFile}")
+    for year, data in allData.items():
+        if data:
+            finalDF = pd.concat(data, ignore_index=True)
+            finalDF = finalDF.sort_values(by=['Year', 'Month', 'Day', 'Hour'])
+            pickleFile = f'./PKLData/dfResultFinal{year}.pkl'
+            finalDF.to_pickle(pickleFile)
+            print(f"DataFrame {year} saved to {pickleFile}")
+
 except Exception as e:
-    print("Iniciate error: "+ str(e))
+    print("Major Error: "+ str(e))
