@@ -90,10 +90,15 @@ def processDate(year, month, day):
             for column in columnsToString:
                 dfResultFinal[column] = dfResultFinal[column].astype(str)
 
+            # # Converter valores não NaN para strings, mantendo os NaN
+            # for column in columnsToString:
+            #     dfResultFinal[column] = dfResultFinal[column].apply(lambda x: str(x) if pd.notna(x) else x)
+
+
             for column in columnsToFloat:
                 dfResultFinal[column] = dfResultFinal[column].apply(convertToFloat)
 
-            dfResultFinal = dfResultFinal.fillna('nan')
+            # dfResultFinal = dfResultFinal.fillna('nan')
             print(f"Processed data for date {year}-{month:02d}-{day:02d}")
             return dfResultFinal
         else:
