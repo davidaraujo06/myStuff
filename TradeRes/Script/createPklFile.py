@@ -1,3 +1,4 @@
+import json
 import os
 import pandas as pd
 import re
@@ -60,8 +61,9 @@ def processDate(year, month, day):
             if marketPrice is None or curvePrice is None:
                 print(f"Failed to load data for date {year}-{month:02d}-{day:02d}")
                 return None
-
+            
             firstCSV = pd.merge(curvePrice, marketPrice, on='datetime', how='inner')
+
             firstCSV.rename(columns={
                 'Pais': 'Bidding Area',
                 'Fecha': 'Date',
@@ -73,7 +75,7 @@ def processDate(year, month, day):
             }, inplace=True)
 
             firstCSV = firstCSV.drop(columns=['Hora', 'Date', 'Offer Type', 'datetime', 'Unnamed: 8'])
-
+            
             dfResultFinal = pd.merge(firstCSV, units, on='Unit', how='left')
 
             new_order = ['Year', 'Month', 'Day', 'Hour', 'Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Capacity_2030', 'Transaction Type', 'Offered (O)/Matched (M)', 'Bid Energy', 'Bid Price', 'PricePT', 'PriceES']
@@ -87,12 +89,12 @@ def processDate(year, month, day):
             for column in columnsToInt:
                 dfResultFinal[column] = dfResultFinal[column].astype(int)
 
-            for column in columnsToString:
-                dfResultFinal[column] = dfResultFinal[column].astype(str)
-
-            # # Converter valores não NaN para strings, mantendo os NaN
             # for column in columnsToString:
-            #     dfResultFinal[column] = dfResultFinal[column].apply(lambda x: str(x) if pd.notna(x) else x)
+            #     dfResultFinal[column] = dfResultFinal[column].astype(str)
+
+            # Converter valores não NaN para strings, mantendo os NaN
+            for column in columnsToString:
+                dfResultFinal[column] = dfResultFinal[column].apply(lambda x: str(x) if pd.notna(x) else x)
 
 
             for column in columnsToFloat:
@@ -100,7 +102,9 @@ def processDate(year, month, day):
 
             # dfResultFinal = dfResultFinal.fillna('nan')
             print(f"Processed data for date {year}-{month:02d}-{day:02d}")
-            return dfResultFinal
+
+
+            return month, dfResultFinal
         else:
             print(f"Files not found for date {year}-{month:02d}-{day:02d}")
             return None
@@ -142,22 +146,26 @@ try:
                 for month in range(1, 13):
                     daysInMonth = getDaysInMonth(year, month)
                     for day in range(1, daysInMonth + 1):
-                        futures[year].append(executor.submit(processDate, year, month, day))
+                        futures[year].append(executor.submit(processDate, year, month, day)) 
 
         for year in years:
-            allData[year] = []
+            allData[year] = {month: [] for month in range(1, 13)}
             for future in as_completed(futures[year]):
                 result = future.result()
                 if result is not None:
-                    allData[year].append(result)
+                    month , data = result
+                    allData[year][month].append(data)
 
-    for year, data in allData.items():
-        if data:
-            finalDF = pd.concat(data, ignore_index=True)
-            finalDF = finalDF.sort_values(by=['Year', 'Month', 'Day', 'Hour'])
-            pickleFile = f'./PKLData/dfResultFinal{year}.pkl'
-            finalDF.to_pickle(pickleFile)
-            print(f"DataFrame {year} saved to {pickleFile}")
+    for year, monthsData in allData.items():
+        for month, data in monthsData.items():
+            if data:
+                finalDF = pd.concat(data, ignore_index=True)
+                finalDF = finalDF.sort_values(by=['Year', 'Month', 'Day', 'Hour'])
+                yearFolder = f'./PKLData/{year}'
+                os.makedirs(yearFolder, exist_ok=True)
+                pickleFile = f'{yearFolder}/dfResultFinal_{year}_{month}.pkl'
+                finalDF.to_pickle(pickleFile)
+                print(f"DataFrame for {year}-{month} saved to {pickleFile}")       
 
 except Exception as e:
     print("Major Error: "+ str(e))
