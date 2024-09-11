@@ -6,9 +6,9 @@ import calendar
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Paths to directories
-curvePriceDir = './data/priceCurves' 
-marketPriceDir = './data/marketPrice'  
-unitsPath = './data/units-info.xlsx'
+curvePriceDir = '../data/priceCurves' 
+marketPriceDir = '../data/marketPrice'  
+unitsPath = '../data/units-info.xlsx'
 
 # Load the units data
 units = pd.read_excel(unitsPath, engine='openpyxl')
@@ -161,7 +161,7 @@ try:
             if data:
                 finalDF = pd.concat(data, ignore_index=True)
                 finalDF = finalDF.sort_values(by=['Year', 'Month', 'Day', 'Hour'])
-                yearFolder = f'./PKLData/{year}'
+                yearFolder = f'../PKLData/{year}'
                 os.makedirs(yearFolder, exist_ok=True)
                 pickleFile = f'{yearFolder}/dfResultFinal_{year}_{month}.pkl'
                 finalDF.to_pickle(pickleFile)
