@@ -1,13 +1,14 @@
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
 import glob
 import os
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+import pickle  
 import tensorflow as tf
 
-# Função para carregar e processar dados
-def load_data_until_date(path_pattern, cols_to_transform, target_column, year, month, day, all_possible_cols=None):
+# Função para carregar e processar dados até a data especificada
+def load_data_for_day(path_pattern, cols_to_transform, target_column, year, month, day, all_possible_cols=None):
     all_files = glob.glob(path_pattern)
     data = []
     target = []
@@ -20,10 +21,10 @@ def load_data_until_date(path_pattern, cols_to_transform, target_column, year, m
         if target_column not in df.columns:
             raise KeyError(f"A coluna '{target_column}' não foi encontrada no arquivo {file}.")
 
-        # Filtrar os dados até o dia especificado
-        df = df[(df['Year'] == year) & (df['Month'] == month) & (df['Day'] <= day)]
+        # Filtrar os dados para aquele dia específico
+        df = df[(df['Year'] == year) & (df['Month'] == month) & (df['Day'] == day)]
         
-        # Separar a coluna alvo ANTES de aplicar pd.get_dummies
+        # Separar a coluna alvo
         y = df[target_column]
         X = df.drop(columns=[target_column])
 
@@ -52,14 +53,6 @@ def load_data_until_date(path_pattern, cols_to_transform, target_column, year, m
 
     return X_all, y_all
 
-# Definir colunas a serem transformadas e a coluna alvo
-cols_to_transform = ['Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Transaction Type', 'Offered (O)/Matched (M)']
-target_column = 'Bid Price'
-
-# Inicializar scalers
-scaler_X = StandardScaler()
-scaler_y = StandardScaler()
-
 # Função para criar o modelo
 def build_model(input_shape):
     model = tf.keras.models.Sequential([
@@ -73,37 +66,28 @@ def build_model(input_shape):
         tf.keras.layers.Dense(1)
     ])
     
-    model.compile(optimizer='adam', loss='mean_squared_error')
     return model
 
 # Função para treinar o modelo diariamente de forma acumulativa
 def train_model_daily_acumulativo(year, month, start_day, end_day, model_save_path):
     all_possible_cols = None
-    X_accumulated = []  # Para acumular os dados de entrada
-    y_accumulated = []  # Para acumular os dados de saída
 
     for day in range(start_day, end_day + 1):
-        print(f"\nTreinando com dados até o dia {day}...")
+        print(f"\nTreinando com dados do dia {day}...")
 
         path_pattern = f'../PKLDataTeste/{year}/dfResultFinal_{year}_{month}.pkl'
         
-        # Carregar dados até o dia atual
-        X, y = load_data_until_date(path_pattern, cols_to_transform, target_column, year, month, day, all_possible_cols)
+        # Carregar dados do dia atual
+        X, y = load_data_for_day(path_pattern, cols_to_transform, target_column, year, month, day, all_possible_cols)
+
 
         if all_possible_cols is None:
             all_possible_cols = X.columns
 
-        # Acumular os dados ao longo dos dias
-        X_accumulated.append(X)
-        y_accumulated.append(y)
-
-        # Concatenar dados acumulados
-        X_concat = pd.concat(X_accumulated, ignore_index=True)
-        y_concat = pd.concat(y_accumulated, ignore_index=True)
 
         # Escalar os dados
-        X_scaled = scaler_X.fit_transform(X_concat)
-        y_scaled = scaler_y.fit_transform(y_concat.values.reshape(-1, 1)).ravel()
+        X_scaled = scaler_X.fit_transform(X)
+        y_scaled = scaler_y.fit_transform(y.values.reshape(-1, 1)).ravel()
 
         # Dividir em treino e validação
         X_train, X_val, y_train, y_val = train_test_split(X_scaled, y_scaled, train_size=0.7, random_state=42)
@@ -112,31 +96,44 @@ def train_model_daily_acumulativo(year, month, start_day, end_day, model_save_pa
         X_train_reshaped = np.expand_dims(X_train, axis=2)
         X_val_reshaped = np.expand_dims(X_val, axis=2)
 
-        # Criar ou carregar o modelo
+        # Carregar modelo completo, incluindo otimizador
         if os.path.exists(model_save_path):
-            try:
-                model = tf.keras.models.load_model(model_save_path)
-                print("Modelo carregado")
-                
-                # Verificar compatibilidade da entrada
-                if model.input_shape[1] != X_train_reshaped.shape[1]:
-                    print("A forma de entrada mudou. Reconstruindo o modelo...")
-                    model = build_model(input_shape=(X_train_reshaped.shape[1], 1))
-
-            except ValueError as e:
-                print(f"Erro ao carregar o modelo: {e}")
-                model = build_model(input_shape=(X_train_reshaped.shape[1], 1))
-                print("Modelo criado")
+            model = tf.keras.models.load_model(model_save_path)  # Carregar modelo completo (com otimizador)
+            print("Modelo completo carregado")
         else:
             model = build_model(input_shape=(X_train_reshaped.shape[1], 1))
-            print("Modelo criado")
-        
-        # Treinar o modelo
+            model.compile(optimizer='adam', loss='mean_squared_error')
+            print("Novo modelo criado")
+
+
+        # Treinar o modelo com os dados do dia atual (incrementalmente)
         model.fit(X_train_reshaped, y_train, epochs=2, batch_size=32, validation_data=(X_val_reshaped, y_val))
         
-        # Salvar o modelo
+        # Salvar os pesos do modelo após o treino diário
+        # Salvar modelo completo
         model.save(model_save_path)
+
         print(f"Modelo salvo em {model_save_path}")
+            # Salvar os scalers e as colunas após o treinamento completo
+
+        with open('./modelPKL/scaler_X.pkl', 'wb') as f:
+            pickle.dump(scaler_X, f)
+
+        with open('./modelPKL/scaler_y.pkl', 'wb') as f:
+            pickle.dump(scaler_y, f)
+
+        with open('./modelPKL/all_possible_cols.pkl', 'wb') as f:
+            pickle.dump(all_possible_cols, f)
+
+        print("Scalers e colunas possíveis salvos.")
+
+# Definir colunas a serem transformadas e a coluna alvo
+cols_to_transform = ['Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Transaction Type', 'Offered (O)/Matched (M)']
+target_column = 'Bid Price'
+
+# Inicializar scalers
+scaler_X = StandardScaler()
+scaler_y = StandardScaler()
 
 # Treinamento diário acumulativo para o mês de janeiro
 train_model_daily_acumulativo(year=2022, month=1, start_day=1, end_day=31, model_save_path='./modelPKL/monthly_model.keras')
