@@ -154,30 +154,31 @@ scalerY = StandardScaler()
 
 Path('./modelPKL').mkdir(parents=True, exist_ok=True)
 
-# Daily incremental training for January
-trainModelDailyIncremental(year=2022, month=1, startDay=1, endDay=31, pathPattern='./PKLData/2022/dfResultFinal_2022_01.pkl', modelSavePath='./modelPKL/monthlyModel.keras')
+# # Daily incremental training for January
+# trainModelDailyIncremental(year=2022, month=1, startDay=1, endDay=31, pathPattern='./PKLData/2022/dfResultFinal_2022_01.pkl', modelSavePath='./modelPKL/monthlyModel.keras')
 
-# # Function to train the model daily incrementally for a specific year
-# def trainModelForYear(basePath, modelSaveBasePath, year):
-#     print(f"\nTraining for year {year}...")
+# Function to train the model daily incrementally for a specific year
+def trainModelForYear(basePath, modelSaveBasePath, year):
+    print(f"\nTraining for year {year}...")
     
-#     for month in range(1, 13):  # Months from January to December
-#         # Get the number of days in the month
-#         _, numDays = calendar.monthrange(year, month)
+    for month in range(1, 13):  # Months from January to December
+        # Get the number of days in the month
+        _, numDays = calendar.monthrange(year, month)
         
-#         for day in range(1, numDays + 1):
-#             print(f"\nTraining with data from {year}-{month:02d}-{day:02d}...")
+        for day in range(1, numDays + 1):
+            print(f"\nTraining with data from {year}-{month:02d}-{day:02d}...")
             
-#             pathPattern = f'{basePath}/{year}/dfResultFinal_{year}_{month:02d}.pkl'
-#             modelSavePath = f'{modelSaveBasePath}/{year}_{month:02d}Model.keras'
+            pathPattern = f'{basePath}/{year}/dfResultFinal_{year}_{month:01d}.pkl'
+
+            modelSavePath = f'{modelSaveBasePath}/{year}_{month:02d}Model.keras'
             
-#             # Train the model incrementally for the current day
-#             trainModelDailyIncremental(year=year, month=month, startDay=day, endDay=day, pathPattern=pathPattern, modelSavePath=modelSavePath)
+            # Train the model incrementally for the current day
+            trainModelDailyIncremental(year=year, month=month, startDay=day, endDay=day, pathPattern=pathPattern, modelSavePath=modelSavePath)
 
-# # Define base path to data and model save path
-# basePath = '../PKLData'
-# modelSaveBasePath = './modelPKL'
-# yearToTrain = 2022  # Specify the year to train
+# Define base path to data and model save path
+basePath = '../PKLData'
+modelSaveBasePath = './modelPKL'
+yearToTrain = 2022  # Specify the year to train
 
-# # Train the model for the specified year
-# trainModelForYear(basePath, modelSaveBasePath, yearToTrain)
+# Train the model for the specified year
+trainModelForYear(basePath, modelSaveBasePath, yearToTrain)
