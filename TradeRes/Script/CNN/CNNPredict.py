@@ -3,91 +3,91 @@ import pandas as pd
 import pickle
 import tensorflow as tf
 
-# Função para preparar os dados de previsão
-def prepare_input_data(year, month, day, hour, bidding_area, agent, unit, technology, country, capacity_2030, transaction_type, offered_matched, bid_energy, all_possible_cols):
-    # Criar um DataFrame com os dados de entrada
-    input_data = pd.DataFrame({
+# Function to prepare the input data for prediction
+def prepareInputData(year, month, day, hour, biddingArea, agent, unit, technology, country, capacity2030, transactionType, offeredMatched, bidEnergy, allPossibleCols):
+    # Create a DataFrame with the input data
+    inputData = pd.DataFrame({
         'Year': [year],
         'Month': [month],
         'Day': [day],
         'Hour': [hour],
-        'Bidding Area': [bidding_area],
+        'Bidding Area': [biddingArea],
         'Agent': [agent],
         'Unit': [unit],
         'Technology': [technology],
         'Country': [country],
-        'Capacity 2030': [capacity_2030],
-        'Transaction Type': [transaction_type],
-        'Offered (O)/Matched (M)': [offered_matched],
-        'Bid Energy': [bid_energy]
+        'Capacity 2030': [capacity2030],
+        'Transaction Type': [transactionType],
+        'Offered (O)/Matched (M)': [offeredMatched],
+        'Bid Energy': [bidEnergy]
     })
 
-    # Aplicar pd.get_dummies para as colunas categóricas
-    input_dummies = pd.get_dummies(input_data, columns=['Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Transaction Type', 'Offered (O)/Matched (M)'])
+    # Apply pd.get_dummies for categorical columns
+    inputDummies = pd.get_dummies(inputData, columns=['Bidding Area', 'Agent', 'Unit', 'Technology', 'Country', 'Transaction Type', 'Offered (O)/Matched (M)'])
 
-    # Garantir que todas as colunas possíveis estejam presentes
-    missing_cols = set(all_possible_cols) - set(input_dummies.columns)
-    for col in missing_cols:
-        input_dummies[col] = 0
+    # Ensure all possible columns are present
+    missingCols = set(allPossibleCols) - set(inputDummies.columns)
+    for col in missingCols:
+        inputDummies[col] = 0
     
-    # Garantir que a ordem das colunas esteja correta
-    input_dummies = input_dummies[all_possible_cols]
+    # Ensure column order is correct
+    inputDummies = inputDummies[allPossibleCols]
 
-    return input_dummies
+    return inputDummies
 
-# Função para fazer previsões
-def predict_price(year, month, day, hour, bidding_area, agent, unit, technology, country, capacity_2030, transaction_type, offered_matched, bid_energy, model_path):
-    # Carregar os scalers e as colunas possíveis
-    with open('./modelPKL/scaler_X.pkl', 'rb') as f:
-        scaler_X = pickle.load(f)
+# Function to make predictions
+def predictPrice(year, month, day, hour, biddingArea, agent, unit, technology, country, capacity2030, transactionType, offeredMatched, bidEnergy, modelPath):
+    # Load scalers and possible columns
+    with open('./modelPKL/scalerX.pkl', 'rb') as f:
+        scalerX = pickle.load(f)
 
-    with open('./modelPKL/scaler_y.pkl', 'rb') as f:
-        scaler_y = pickle.load(f)
+    with open('./modelPKL/scalerY.pkl', 'rb') as f:
+        scalerY = pickle.load(f)
 
-    with open('./modelPKL/all_possible_cols.pkl', 'rb') as f:
-        all_possible_cols = pickle.load(f)
+    with open('./modelPKL/allPossibleCols.pkl', 'rb') as f:
+        allPossibleCols = pickle.load(f)
 
-    print("Scalers e colunas possíveis carregados.")
+    print("Scalers and possible columns loaded.")
 
-    # Preparar os dados de entrada
-    input_data = prepare_input_data(year, month, day, hour, bidding_area, agent, unit, technology, country, capacity_2030, transaction_type, offered_matched, bid_energy, all_possible_cols)
+    # Prepare the input data
+    inputData = prepareInputData(year, month, day, hour, biddingArea, agent, unit, technology, country, capacity2030, transactionType, offeredMatched, bidEnergy, allPossibleCols)
     
-    # Escalar os dados de entrada
-    input_scaled = scaler_X.transform(input_data)
+    # Scale the input data
+    inputScaled = scalerX.transform(inputData)
 
-    # Ajustar a forma dos dados para o formato esperado pela CNN
-    input_reshaped = np.expand_dims(input_scaled, axis=2)
+    # Reshape the data to the expected format for the CNN
+    inputReshaped = np.expand_dims(inputScaled, axis=2)
 
-    # Carregar o modelo treinado
-    model = tf.keras.models.load_model(model_path)
+    # Load the trained model
+    model = tf.keras.models.load_model(modelPath)
 
-    # Fazer a previsão
-    prediction_scaled = model.predict(input_reshaped)
+    # Make the prediction
+    predictionScaled = model.predict(inputReshaped)
 
-    # Reverter a escala da previsão
-    prediction = scaler_y.inverse_transform(prediction_scaled.reshape(-1, 1))
+    # Inverse transform the prediction
+    prediction = scalerY.inverse_transform(predictionScaled.reshape(-1, 1))
 
     return prediction[0][0]
 
-# Exemplo de valores de entrada
+# Example input values
 year = 2023
 month = 1
 day = 2
 hour = 8
-bidding_area = "MI"
+biddingArea = "MI"
 agent = "EGLE"
 unit = "EGVD086"
 technology = "Wind Onshore"
 country = "ES"
-capacity_2030 = 22.516331
-transaction_type = "Sell"
-offered_matched = "C"
-bid_energy = 3.0
+capacity2030 = 22.516331
+transactionType = "Sell"
+offeredMatched = "C"
+bidEnergy = 3.0
 
-# Caminho do modelo treinado
-model_path = './modelPKL/monthly_model.keras'
+# Path to the trained model
+modelPath = './modelPKL/monthlyModel.keras'
 
-# Fazer a previsão
-preco_previsto = predict_price(year, month, day, hour, bidding_area, agent, unit, technology, country, capacity_2030, transaction_type, offered_matched, bid_energy, model_path)
+# Make the prediction
+predictedPrice = predictPrice(year, month, day, hour, biddingArea, agent, unit, technology, country, capacity2030, transactionType, offeredMatched, bidEnergy, modelPath)
 
-print(f"O preço previsto é: {preco_previsto}")
+print(f"The predicted price is: {predictedPrice}")
